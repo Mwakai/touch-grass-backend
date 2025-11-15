@@ -1,0 +1,166 @@
+### Test file for Touch Grass API Authentication Endpoints
+### Use with REST Client extension in VS Code or similar HTTP client
+
+@baseUrl = http://localhost:3000
+@token = YOUR_JWT_TOKEN_HERE
+
+### ===========================
+### Health Check
+### ===========================
+
+### Check server health
+GET {{baseUrl}}/health
+
+### Get API information
+GET {{baseUrl}}/
+
+### ===========================
+### Authentication Endpoints
+### ===========================
+
+### 1. Signup - Parent Account
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "parent@test.com",
+  "password": "password123",
+  "role": "parent"
+}
+
+### 2. Signup - Kid Account
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "kid@test.com",
+  "password": "password123",
+  "role": "kid"
+}
+
+### 3. Signup - Default Role (parent)
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "default@test.com",
+  "password": "password123"
+}
+
+### 4. Login - Parent
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "parent@test.com",
+  "password": "password123"
+}
+
+### 5. Login - Kid
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "kid@test.com",
+  "password": "password123"
+}
+
+### 6. Get Current User (Protected - requires token)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### 7. Logout
+POST {{baseUrl}}/api/auth/logout
+
+### ===========================
+### Error Test Cases
+### ===========================
+
+### Signup - Missing password
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "error@test.com"
+}
+
+### Signup - Password too short
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "short@test.com",
+  "password": "12345"
+}
+
+### Signup - Invalid email format
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "password": "password123"
+}
+
+### Signup - Invalid role
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "invalid-role@test.com",
+  "password": "password123",
+  "role": "admin"
+}
+
+### Signup - Duplicate email
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "parent@test.com",
+  "password": "password123"
+}
+
+### Login - Wrong password
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "parent@test.com",
+  "password": "wrongpassword"
+}
+
+### Login - Non-existent user
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nonexistent@test.com",
+  "password": "password123"
+}
+
+### Get Current User - No token
+GET {{baseUrl}}/api/auth/me
+
+### Get Current User - Invalid token
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer invalid_token_here
+
+### ===========================
+### Instructions
+### ===========================
+
+# 1. Start MongoDB (if running locally):
+#    mongod
+#
+# 2. Start the server:
+#    npm run dev
+#
+# 3. Test the endpoints in order:
+#    - First, signup a new user
+#    - Copy the token from the response
+#    - Replace {{token}} at the top of this file
+#    - Test the protected /me endpoint
+#
+# 4. Use REST Client extension in VS Code to run these requests
+#    Or use Postman, Insomnia, or curl
