@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Kid = require('../models/Kid');
 
 /**
  * Generate JWT token
@@ -22,7 +23,7 @@ const generateToken = (id, role) => {
  */
 const signup = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password, role, familyCode, name, age } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -48,6 +49,30 @@ const signup = async (req, res) => {
       });
     }
 
+    // If signing up as a kid, validate required fields
+    if (role === 'kid') {
+      if (!familyCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Family code is required for kid signup'
+        });
+      }
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name is required for kid signup'
+        });
+      }
+
+      if (!age) {
+        return res.status(400).json({
+          success: false,
+          message: 'Age is required for kid signup'
+        });
+      }
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
@@ -57,27 +82,88 @@ const signup = async (req, res) => {
       });
     }
 
+    let parentUser = null;
+    let userFamilyCode = null;
+
+    // Handle role-specific logic
+    if (role === 'kid') {
+      // Find parent by family code
+      parentUser = await User.findOne({ familyCode: familyCode.toUpperCase() });
+      if (!parentUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid family code. Please check with your parent.'
+        });
+      }
+    } else {
+      // Generate unique family code for parent
+      let isUnique = false;
+      while (!isUnique) {
+        userFamilyCode = User.generateFamilyCode();
+        const existing = await User.findOne({ familyCode: userFamilyCode });
+        if (!existing) isUnique = true;
+      }
+    }
+
     // Create new user
     const user = await User.create({
       email: email.toLowerCase().trim(),
       password,
-      role: role || 'parent'
+      role: role || 'parent',
+      // Parents get their own code, kids get their parent's code
+      familyCode: role === 'kid' ? parentUser.familyCode : userFamilyCode,
+      parent: parentUser ? parentUser._id : undefined,
+      name: role === 'kid' ? name : undefined
     });
+
+    // If kid signup, also create Kid document and link to parent
+    let kidDoc = null;
+    if (role === 'kid' && parentUser) {
+      // Create Kid document
+      kidDoc = await Kid.create({
+        name,
+        age,
+        parent: parentUser._id
+      });
+
+      // Add kid to parent's kids array
+      await User.findByIdAndUpdate(
+        parentUser._id,
+        { $push: { kids: kidDoc._id } },
+        { new: true }
+      );
+    }
 
     // Generate token
     const token = generateToken(user._id, user.role);
+
+    // Build response data
+    const responseData = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt
+    };
+
+    // Include family code for parents
+    if (user.role === 'parent') {
+      responseData.familyCode = user.familyCode;
+    }
+
+    // Include name and parent info for kids
+    if (user.role === 'kid') {
+      responseData.name = user.name;
+      responseData.parentId = user.parent;
+      responseData.kidId = kidDoc ? kidDoc._id : undefined;
+      responseData.age = age;
+    }
 
     // Return response
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       token,
-      data: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
+      data: responseData
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -178,15 +264,26 @@ const getCurrentUser = async (req, res) => {
       });
     }
 
+    // Build response data
+    const responseData = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt
+    };
+
+    // Include role-specific data
+    if (user.role === 'parent') {
+      responseData.familyCode = user.familyCode;
+      responseData.kids = user.kids;
+    } else if (user.role === 'kid') {
+      responseData.name = user.name;
+      responseData.parent = user.parent;
+    }
+
     res.status(200).json({
       success: true,
-      data: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        kids: user.kids,
-        createdAt: user.createdAt
-      }
+      data: responseData
     });
   } catch (error) {
     console.error('Get current user error:', error);

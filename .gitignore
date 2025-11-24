@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
 package-lock.json
-
+# Tests
+scripts
 # Environment variables
 .env
 .env.local

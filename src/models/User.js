@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -25,6 +26,21 @@ const userSchema = new mongoose.Schema({
     default: 'parent',
     required: true
   },
+  // For parents: unique family code that kids use to join
+  familyCode: {
+    type: String
+  },
+  // For kids: reference to their parent user
+  parent: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  // For kids signing up independently: their name
+  name: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Name cannot exceed 50 characters']
+  },
   kids: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Kid'
@@ -35,8 +51,16 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Generate unique family code for parents
+userSchema.statics.generateFamilyCode = function() {
+  return crypto.randomBytes(3).toString('hex').toUpperCase(); // 6 character code like "A3F2B1"
+};
+
 // Add index on email for better query performance
 userSchema.index({ email: 1 });
+
+// Add index on familyCode for querying family members
+userSchema.index({ familyCode: 1 });
 
 // Pre-save hook to hash password before saving
 userSchema.pre('save', async function(next) {
