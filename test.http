@@ -14,40 +14,34 @@ GET {{baseUrl}}/health
 ### Get API information
 GET {{baseUrl}}/
 
+### Privacy policy parents accept
+GET {{baseUrl}}/privacy
+
 ### ===========================
 ### Authentication Endpoints
 ### ===========================
 
-### 1. Signup - Parent Account
+### 1. Signup - Parent Account (consent to the privacy policy is required)
 POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 
 {
   "email": "parent@test.com",
   "password": "password123",
-  "role": "parent"
+  "consent": true
 }
 
-### 2. Signup - Kid Account
-POST {{baseUrl}}/api/auth/signup
+### 2. Parent: create a kid's login (replace KID_ID; use a parent token)
+PUT {{baseUrl}}/api/kids/KID_ID/login
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "email": "kid@test.com",
-  "password": "password123",
-  "role": "kid"
+  "username": "sam",
+  "pin": "0420"
 }
 
-### 3. Signup - Default Role (parent)
-POST {{baseUrl}}/api/auth/signup
-Content-Type: application/json
-
-{
-  "email": "default@test.com",
-  "password": "password123"
-}
-
-### 4. Login - Parent
+### 3. Login - Parent
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
@@ -56,14 +50,19 @@ Content-Type: application/json
   "password": "password123"
 }
 
-### 5. Login - Kid
-POST {{baseUrl}}/api/auth/login
+### 4. Login - Kid (familyCode from the parent signup)
+POST {{baseUrl}}/api/auth/kid-login
 Content-Type: application/json
 
 {
-  "email": "kid@test.com",
-  "password": "password123"
+  "familyCode": "A3F2B1",
+  "username": "sam",
+  "pin": "0420"
 }
+
+### 5. Delete account (parent): removes the parent and all their kids' data
+DELETE {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
 
 ### 6. Get Current User (Protected - requires token)
 GET {{baseUrl}}/api/auth/me
@@ -73,8 +72,115 @@ Authorization: Bearer {{token}}
 POST {{baseUrl}}/api/auth/logout
 
 ### ===========================
+### Kid Profile Endpoints
+### ===========================
+
+### Parent: add a kid (consent required; interests, username and pin optional)
+POST {{baseUrl}}/api/kids
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Ann",
+  "age": 6,
+  "interests": ["swimming"],
+  "consent": true,
+  "username": "ann",
+  "pin": "1234"
+}
+
+### Parent: list kids
+GET {{baseUrl}}/api/kids
+Authorization: Bearer {{token}}
+
+### Parent: get / update / delete a kid (replace KID_ID)
+GET {{baseUrl}}/api/kids/KID_ID
+Authorization: Bearer {{token}}
+
+### Kid: get own profile (use a kid token)
+GET {{baseUrl}}/api/kids/me
+Authorization: Bearer {{token}}
+
+### Kid: update own avatar and interests
+PUT {{baseUrl}}/api/kids/me
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "avatarColor": "from-green-400 to-teal-500",
+  "interests": ["soccer", "climbing"]
+}
+
+### ===========================
+### Game Endpoints
+### ===========================
+
+### Kid: my adventure (use a kid token)
+GET {{baseUrl}}/api/game/me
+Authorization: Bearer {{token}}
+
+### Kid: submit a challenge
+POST {{baseUrl}}/api/game/me/challenges/backyard-bug-hunt
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "note": "Found a beetle, a worm and a snail!"
+}
+
+### Parent: approvals waiting (use a parent token)
+GET {{baseUrl}}/api/game/pending
+Authorization: Bearer {{token}}
+
+### Parent: a kid's adventure (replace KID_ID)
+GET {{baseUrl}}/api/game/kids/KID_ID
+Authorization: Bearer {{token}}
+
+### Parent: approve or reject (replace COMPLETION_ID; decision is approve or reject)
+POST {{baseUrl}}/api/game/completions/COMPLETION_ID/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "decision": "approve"
+}
+
+### ===========================
 ### Error Test Cases
 ### ===========================
+
+### Kid signup - refused (403): parents create kid logins
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "kid2@test.com",
+  "password": "password123",
+  "role": "kid"
+}
+
+### Signup - no consent (400)
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "noconsent@test.com",
+  "password": "password123"
+}
+
+### Kid login - wrong PIN (401; 5 in a row locks it for 15 minutes)
+POST {{baseUrl}}/api/auth/kid-login
+Content-Type: application/json
+
+{
+  "familyCode": "A3F2B1",
+  "username": "sam",
+  "pin": "9999"
+}
+
+### Malformed kid id (400)
+GET {{baseUrl}}/api/kids/not-an-id
+Authorization: Bearer {{token}}
 
 ### Signup - Missing password
 POST {{baseUrl}}/api/auth/signup
@@ -89,6 +195,7 @@ POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 
 {
+  "consent": true,
   "email": "short@test.com",
   "password": "12345"
 }
@@ -98,6 +205,7 @@ POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 
 {
+  "consent": true,
   "email": "invalid-email",
   "password": "password123"
 }
@@ -107,6 +215,7 @@ POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 
 {
+  "consent": true,
   "email": "invalid-role@test.com",
   "password": "password123",
   "role": "admin"
@@ -117,6 +226,7 @@ POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 
 {
+  "consent": true,
   "email": "parent@test.com",
   "password": "password123"
 }
